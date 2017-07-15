@@ -26,7 +26,6 @@ import * as timers from "timers";
 import * as repl from "repl";
 import * as v8 from "v8";
 import * as dns from "dns";
-import * as async_hooks from "async_hooks";
 
 // Specifically test buffer module regression.
 import {Buffer as ImportedBuffer, SlowBuffer as ImportedSlowBuffer} from "buffer";
@@ -63,9 +62,7 @@ namespace assert_tests {
 
         assert.equal(3, "3", "uses == comparator");
 
-        assert.fail('stuff broke');
-
-        assert.fail('actual', 'expected', 'message');
+        assert.fail("actual", "expected", "message");
 
         assert.fail(1, 2, undefined, '>');
 
@@ -93,7 +90,7 @@ namespace assert_tests {
 namespace events_tests {
     let emitter: events.EventEmitter;
     let event: string | symbol;
-    let listener: (...args: any[]) => void;
+    let listener: Function;
     let any: any;
 
     {
@@ -581,11 +578,6 @@ namespace util_tests {
           maxArrayLength: null,
           breakLength: Infinity
         })
-        assert(typeof util.inspect.custom === 'symbol')
-        // util.promisify
-        var readPromised = util.promisify(fs.readFile)
-        var sampleRead: Promise<any> = readPromised(__filename).then((data: string): void => {}).catch((error: Error): void => {})
-        assert(typeof util.promisify.custom === 'symbol')
     }
 }
 
@@ -641,9 +633,6 @@ function simplified_stream_ctor_test() {
     new stream.Readable({
         read: function(size) {
             size.toFixed();
-        },
-        destroy: function(error) {
-            error.stack;
         }
     });
 
@@ -657,9 +646,6 @@ function simplified_stream_ctor_test() {
             chunks[0].chunk.slice(0);
             chunks[0].encoding.charAt(0);
             cb();
-        },
-        destroy: function(error) {
-            error.stack;
         }
     });
 
@@ -702,9 +688,6 @@ function simplified_stream_ctor_test() {
             chunks[0].chunk.slice(0);
             chunks[0].encoding.charAt(0);
             cb();
-        },
-        destroy: function(error) {
-            error.stack;
         },
         allowHalfOpen: true,
         readableObjectMode: true,
@@ -1032,7 +1015,7 @@ namespace http_tests {
     }
 
     {
-        var request = http.request({ path: 'http://0.0.0.0' });
+        var request = http.request('http://0.0.0.0');
         request.once('error', function() { });
         request.setNoDelay(true);
         request.abort();
@@ -1096,10 +1079,6 @@ namespace dgram_tests {
     });
     ds.bind();
     ds.bind(41234);
-    ds.bind(4123, 'localhost');
-    ds.bind(4123, 'localhost', () => {});
-    ds.bind(4123, () => {});
-    ds.bind(() => {});
     var ai: dgram.AddressInfo = ds.address();
     ds.send(new Buffer("hello"), 0, 5, 5000, "127.0.0.1", (error: Error, bytes: number): void => {
     });
@@ -1443,7 +1422,6 @@ namespace readline_tests {
         let x: number;
         let y: number;
 
-        readline.cursorTo(stream, x);
         readline.cursorTo(stream, x, y);
     }
 
@@ -1559,123 +1537,7 @@ namespace child_process_tests {
 
     {
         let _cp: childProcess.ChildProcess;
-        let _socket: net.Socket;
-        let _server: net.Server;
         let _boolean: boolean;
-
-        _boolean = _cp.send(1);
-        _boolean = _cp.send('one');
-        _boolean = _cp.send({
-            type: 'test'
-        });
-
-        _boolean = _cp.send(1, (error) => {
-            let _err: Error = error;
-        });
-        _boolean = _cp.send('one', (error) => {
-            let _err: Error = error;
-        });
-        _boolean = _cp.send({
-            type: 'test'
-        }, (error) => {
-            let _err: Error = error;
-        });
-
-        _boolean = _cp.send(1, _socket);
-        _boolean = _cp.send('one', _socket);
-        _boolean = _cp.send({
-            type: 'test'
-        }, _socket);
-
-        _boolean = _cp.send(1, _socket, (error) => {
-            let _err: Error = error;
-        });
-        _boolean = _cp.send('one', _socket, (error) => {
-            let _err: Error = error;
-        });
-        _boolean = _cp.send({
-            type: 'test'
-        }, _socket, (error) => {
-            let _err: Error = error;
-        });
-
-        _boolean = _cp.send(1, _socket, {
-            keepOpen: true
-        });
-        _boolean = _cp.send('one', _socket, {
-            keepOpen: true
-        });
-        _boolean = _cp.send({
-            type: 'test'
-        }, _socket, {
-            keepOpen: true
-        });
-
-        _boolean = _cp.send(1, _socket, {
-            keepOpen: true
-        }, (error) => {
-            let _err: Error = error;
-        });
-        _boolean = _cp.send('one', _socket, {
-            keepOpen: true
-        }, (error) => {
-            let _err: Error = error;
-        });
-        _boolean = _cp.send({
-            type: 'test'
-        }, _socket, {
-            keepOpen: true
-        }, (error) => {
-            let _err: Error = error;
-        });
-
-        _boolean = _cp.send(1, _server);
-        _boolean = _cp.send('one', _server);
-        _boolean = _cp.send({
-            type: 'test'
-        }, _server);
-
-        _boolean = _cp.send(1, _server, (error) => {
-            let _err: Error = error;
-        });
-        _boolean = _cp.send('one', _server, (error) => {
-            let _err: Error = error;
-        });
-        _boolean = _cp.send({
-            type: 'test'
-        }, _server, (error) => {
-            let _err: Error = error;
-        });
-
-        _boolean = _cp.send(1, _server, {
-            keepOpen: true
-        });
-        _boolean = _cp.send('one', _server, {
-            keepOpen: true
-        });
-        _boolean = _cp.send({
-            type: 'test'
-        }, _server, {
-            keepOpen: true
-        });
-
-        _boolean = _cp.send(1, _server, {
-            keepOpen: true
-        }, (error) => {
-            let _err: Error = error;
-        });
-        _boolean = _cp.send('one', _server, {
-            keepOpen: true
-        }, (error) => {
-            let _err: Error = error;
-        });
-        _boolean = _cp.send({
-            type: 'test'
-        }, _server, {
-            keepOpen: true
-        }, (error) => {
-            let _err: Error = error;
-        });
 
         _cp = _cp.addListener("close", (code, signal) => {
             let _code: number = code;
@@ -2061,24 +1923,6 @@ namespace process_tests {
     {
         var module: NodeModule | undefined;
         module = process.mainModule;
-    }
-    {
-        process.on("message", (req: any) => { });
-        process.addListener("beforeExit", (code: number) => { });
-        process.once("disconnect", () => { });
-        process.prependListener("exit", (code: number) => { });
-        process.prependOnceListener("rejectionHandled", (promise: Promise<any>) => { });
-        process.on("uncaughtException", (error: Error) => { });
-        process.addListener("unhandledRejection", (reason: any, promise: Promise<any>) => { });
-        process.once("warning", (warning: Error) => { });
-        process.prependListener("message", (message: any, sendHandle: any) => { });
-        process.prependOnceListener("SIGBREAK", () => { });
-        process.on("newListener", (event: string, listener: Function) => { });
-        process.once("removeListener", (event: string, listener: Function) => { });
-
-        const listeners = process.listeners('uncaughtException');
-        const oldHandler = listeners[listeners.length - 1];
-        process.addListener('uncaughtException', oldHandler);
     }
 }
 
@@ -2655,19 +2499,3 @@ client.connect(8888, 'localhost');
 client.listbreakpoints((err, body, packet) => {
 
 });
-
-////////////////////////////////////////////////////
-/// AsyncHooks tests : https://nodejs.org/api/async_hooks.html
-////////////////////////////////////////////////////
-namespace async_hooks_tests {
-    const hooks: async_hooks.HookCallbacks = {
-        init: (asyncId: number, type: string, triggerId: number, resource: object) => void {},
-        before: (asyncId: number) => void {},
-        after: (asyncId: number) => void {},
-        destroy: (asyncId: number) => void {}
-    };
-
-    const asyncHook = async_hooks.createHook(hooks);
-
-    asyncHook.enable().disable().enable();
-}
