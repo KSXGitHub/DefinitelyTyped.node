@@ -1,21 +1,22 @@
-// Type definitions for Node.js v6.x
+// Type definitions for Node.js v7.x
 // Project: http://nodejs.org/
 // Definitions by: Microsoft TypeScript <http://typescriptlang.org>
 //                 DefinitelyTyped <https://github.com/DefinitelyTyped/DefinitelyTyped>
+//                 Parambir Singh <https://github.com/parambirs>
+//                 Christian Vaagland Tellnes <https://github.com/tellnes>
 //                 Wilco Bakker <https://github.com/WilcoBakker>
-//                 Thomas Bouldin <https://github.com/inlined>
 //                 Sebastian Silbermann <https://github.com/eps1lon>
 // Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
 
 /************************************************
 *                                               *
-*               Node.js v6.x API                *
+*               Node.js v7.x API                *
 *                                               *
 ************************************************/
 
 // This needs to be global to avoid TS2403 in case lib.dom.d.ts is present in the same build
 interface Console {
-    Console: typeof NodeJS.Console;
+    Console: NodeJS.ConsoleConstructor;
     assert(value: any, message?: string, ...optionalParams: any[]): void;
     dir(obj: any, options?: NodeJS.InspectOptions): void;
     error(message?: any, ...optionalParams: any[]): void;
@@ -53,6 +54,17 @@ interface MapConstructor { }
 interface WeakMapConstructor { }
 interface SetConstructor { }
 interface WeakSetConstructor { }
+
+// Forward-declare needed types from lib.es2015.d.ts (in case users are using `--lib es5`)
+interface Iterable<T> {}
+interface Iterator<T> {
+    next(value?: any): IteratorResult<T>;
+}
+interface IteratorResult<T> {}
+interface SymbolConstructor {
+    readonly iterator: symbol;
+}
+declare var Symbol: SymbolConstructor;
 
 /************************************************
 *                                               *
@@ -263,7 +275,7 @@ declare namespace NodeJS {
         breakLength?: number;
     }
 
-    export var Console: {
+    export interface ConsoleConstructor {
         prototype: Console;
         new(stdout: WritableStream, stderr?: WritableStream): Console;
     }
@@ -370,12 +382,12 @@ declare namespace NodeJS {
     export interface ReadableStream extends EventEmitter {
         readable: boolean;
         read(size?: number): string | Buffer;
-        setEncoding(encoding: string | null): void;
+        setEncoding(encoding: string | null): this;
         pause(): this;
         resume(): this;
         isPaused(): boolean;
         pipe<T extends WritableStream>(destination: T, options?: { end?: boolean; }): T;
-        unpipe<T extends WritableStream>(destination?: T): void;
+        unpipe<T extends WritableStream>(destination?: T): this;
         unshift(chunk: string): void;
         unshift(chunk: Buffer): void;
         wrap(oldStream: ReadableStream): ReadableStream;
@@ -391,7 +403,7 @@ declare namespace NodeJS {
         end(str: string, encoding?: string, cb?: Function): void;
     }
 
-    export interface ReadWriteStream extends ReadableStream, WritableStream {}
+    export interface ReadWriteStream extends ReadableStream, WritableStream { }
 
     export interface Events extends EventEmitter { }
 
@@ -458,6 +470,7 @@ declare namespace NodeJS {
         stdout: WriteStream;
         stderr: WriteStream;
         stdin: ReadStream;
+        openStdin(): Socket;
         argv: string[];
         argv0: string;
         execArgv: string[];
@@ -467,7 +480,7 @@ declare namespace NodeJS {
         cwd(): string;
         emitWarning(warning: string | Error, name?: string, ctor?: Function): void;
         env: any;
-        exit(code?: number): void;
+        exit(code?: number): never;
         exitCode: number;
         getgid(): number;
         setgid(id: number): void;
@@ -1203,7 +1216,17 @@ declare module "cluster" {
 
 declare module "zlib" {
     import * as stream from "stream";
-    export interface ZlibOptions { chunkSize?: number; windowBits?: number; level?: number; memLevel?: number; strategy?: number; dictionary?: any; finishFlush?: number }
+
+    export interface ZlibOptions {
+      flush?: number; // default: zlib.constants.Z_NO_FLUSH
+      finishFlush?: number; // default: zlib.constants.Z_FINISH
+      chunkSize?: number; // default: 16*1024
+      windowBits?: number;
+      level?: number; // compression only
+      memLevel?: number; // compression only
+      strategy?: number; // compression only
+      dictionary?: any; // deflate/inflate only, empty dictionary by default
+    }
 
     export interface Gzip extends stream.Transform { }
     export interface Gunzip extends stream.Transform { }
@@ -1243,6 +1266,45 @@ declare module "zlib" {
     export function unzip(buf: Buffer | string, options: ZlibOptions, callback: (error: Error, result: Buffer) => void): void;
     export function unzipSync(buf: Buffer | string, options?: ZlibOptions): Buffer;
 
+    export namespace constants {
+        // Allowed flush values.
+
+        export const Z_NO_FLUSH: number;
+        export const Z_PARTIAL_FLUSH: number;
+        export const Z_SYNC_FLUSH: number;
+        export const Z_FULL_FLUSH: number;
+        export const Z_FINISH: number;
+        export const Z_BLOCK: number;
+        export const Z_TREES: number;
+
+        // Return codes for the compression/decompression functions. Negative values are errors, positive values are used for special but normal events.
+
+        export const Z_OK: number;
+        export const Z_STREAM_END: number;
+        export const Z_NEED_DICT: number;
+        export const Z_ERRNO: number;
+        export const Z_STREAM_ERROR: number;
+        export const Z_DATA_ERROR: number;
+        export const Z_MEM_ERROR: number;
+        export const Z_BUF_ERROR: number;
+        export const Z_VERSION_ERROR: number;
+
+        // Compression levels.
+
+        export const Z_NO_COMPRESSION: number;
+        export const Z_BEST_SPEED: number;
+        export const Z_BEST_COMPRESSION: number;
+        export const Z_DEFAULT_COMPRESSION: number;
+
+        // Compression strategy.
+
+        export const Z_FILTERED: number;
+        export const Z_HUFFMAN_ONLY: number;
+        export const Z_RLE: number;
+        export const Z_FIXED: number;
+        export const Z_DEFAULT_STRATEGY: number;
+    }
+
     // Constants
     export var Z_NO_FLUSH: number;
     export var Z_PARTIAL_FLUSH: number;
@@ -1274,7 +1336,6 @@ declare module "zlib" {
     export var Z_ASCII: number;
     export var Z_UNKNOWN: number;
     export var Z_DEFLATED: number;
-    export var Z_NULL: number;
 }
 
 declare module "os" {
@@ -1487,7 +1548,7 @@ declare module "https" {
     export interface Server extends tls.Server { }
     export function createServer(options: ServerOptions, requestListener?: Function): Server;
     export function request(options: RequestOptions | string, callback?: (res: http.IncomingMessage) => void): http.ClientRequest;
-    export function get(options: RequestOptions | string, callback?: (res: http.IncomingMessage) => void): http.ClientRequest;
+    export function get(options: RequestOptions, callback?: (res: http.IncomingMessage) => void): http.ClientRequest;
     export var globalAgent: Agent;
 }
 
@@ -1524,10 +1585,9 @@ declare module "repl" {
     }
 
     export interface REPLServer extends readline.ReadLine {
+        context: any;
         defineCommand(keyword: string, cmd: Function | { help: string, action: Function }): void;
         displayPrompt(preserveCursor?: boolean): void;
-
-        context: any;
 
         /**
          * events.EventEmitter
@@ -1579,8 +1639,8 @@ declare module "readline" {
         setPrompt(prompt: string): void;
         prompt(preserveCursor?: boolean): void;
         question(query: string, callback: (answer: string) => void): void;
-        pause(): this;
-        resume(): this;
+        pause(): ReadLine;
+        resume(): ReadLine;
         close(): void;
         write(data: string | Buffer, key?: Key): void;
 
@@ -1650,25 +1710,26 @@ declare module "readline" {
         prependOnceListener(event: "SIGTSTP", listener: () => void): this;
     }
 
-    export interface Completer {
-        (line: string): CompleterResult;
-        (line: string, callback: (err: any, result: CompleterResult) => void): any;
-    }
+    type Completer = (line: string) => CompleterResult;
+    type AsyncCompleter = (line: string, callback: (err: any, result: CompleterResult) => void) => any;
 
     export type CompleterResult = [string[], string];
 
     export interface ReadLineOptions {
         input: NodeJS.ReadableStream;
         output?: NodeJS.WritableStream;
-        completer?: Completer;
+        completer?: Completer | AsyncCompleter;
         terminal?: boolean;
         historySize?: number;
+        prompt?: string;
+        crlfDelay?: number;
+        removeHistoryDuplicates?: boolean;
     }
 
-    export function createInterface(input: NodeJS.ReadableStream, output?: NodeJS.WritableStream, completer?: Completer, terminal?: boolean): ReadLine;
+    export function createInterface(input: NodeJS.ReadableStream, output?: NodeJS.WritableStream, completer?: Completer | AsyncCompleter, terminal?: boolean): ReadLine;
     export function createInterface(options: ReadLineOptions): ReadLine;
 
-    export function cursorTo(stream: NodeJS.WritableStream, x: number, y?: number): void;
+    export function cursorTo(stream: NodeJS.WritableStream, x: number, y: number): void;
     export function moveCursor(stream: NodeJS.WritableStream, dx: number | string, dy: number | string): void;
     export function clearLine(stream: NodeJS.WritableStream, dir: number): void;
     export function clearScreenDown(stream: NodeJS.WritableStream): void;
@@ -1842,6 +1903,7 @@ declare module "child_process" {
         execPath?: string;
         execArgv?: string[];
         silent?: boolean;
+        stdio?: any[];
         uid?: number;
         gid?: number;
     }
@@ -1936,18 +1998,18 @@ declare module "child_process" {
 
 declare module "url" {
     export interface UrlObject {
-        href?: string;
-        protocol?: string;
-        slashes?: boolean;
-        host?: string;
         auth?: string;
-        hostname?: string;
-        port?: string | number;
-        pathname?: string;
-        search?: string;
-        path?: string;
-        query?: string | { [key: string]: any; };
         hash?: string;
+        host?: string;
+        hostname?: string;
+        href?: string;
+        path?: string;
+        pathname?: string;
+        port?: string | number;
+        protocol?: string;
+        query?: string | { [key: string]: any; };
+        search?: string;
+        slashes?: boolean;
     }
 
     export interface Url extends UrlObject {
@@ -1956,8 +2018,51 @@ declare module "url" {
     }
 
     export function parse(urlStr: string, parseQueryString?: boolean, slashesDenoteHost?: boolean): Url;
+    export function format(URL: URL, options?: URLFormatOptions): string;
     export function format(urlObject: UrlObject | string): string;
     export function resolve(from: string, to: string): string;
+
+    export interface URLFormatOptions {
+        auth?: boolean;
+        fragment?: boolean;
+        search?: boolean;
+        unicode?: boolean;
+    }
+
+    export class URLSearchParams implements Iterable<string[]> {
+        constructor(init?: URLSearchParams | string | { [key: string]: string | string[] } | Iterable<string[]> );
+        append(name: string, value: string): void;
+        delete(name: string): void;
+        entries(): Iterator<string[]>;
+        forEach(callback: (value: string, name: string) => void): void;
+        get(name: string): string | null;
+        getAll(name: string): string[];
+        has(name: string): boolean;
+        keys(): Iterator<string>;
+        set(name: string, value: string): void;
+        sort(): void;
+        toString(): string;
+        values(): Iterator<string>;
+        [Symbol.iterator](): Iterator<string[]>;
+    }
+
+    export class URL {
+        constructor(input: string, base?: string | URL);
+        hash: string;
+        host: string;
+        hostname: string;
+        href: string;
+        readonly origin: string;
+        password: string;
+        pathname: string;
+        port: string;
+        protocol: string;
+        search: string;
+        readonly searchParams: URLSearchParams;
+        username: string;
+        toString(): string;
+        toJSON(): string;
+    }
 }
 
 declare module "dns" {
@@ -1989,6 +2094,19 @@ declare module "dns" {
     export function lookup(hostname: string, options: LookupAllOptions, callback: (err: NodeJS.ErrnoException, addresses: LookupAddress[]) => void): void;
     export function lookup(hostname: string, options: LookupOptions, callback: (err: NodeJS.ErrnoException, address: string | LookupAddress[], family: number) => void): void;
     export function lookup(hostname: string, callback: (err: NodeJS.ErrnoException, address: string, family: number) => void): void;
+
+    export interface ResolveOptions {
+        ttl: boolean;
+    }
+
+    export interface ResolveWithTtlOptions extends ResolveOptions {
+        ttl: true;
+    }
+
+    export interface RecordWithTtl {
+        address: string;
+        ttl: number;
+    }
 
     export interface MxRecord {
         priority: number;
@@ -2035,7 +2153,13 @@ declare module "dns" {
     export function resolve(hostname: string, rrtype: string, callback: (err: NodeJS.ErrnoException, addresses: string[] | MxRecord[] | NaptrRecord[] | SoaRecord | SrvRecord[] | string[][]) => void): void;
 
     export function resolve4(hostname: string, callback: (err: NodeJS.ErrnoException, addresses: string[]) => void): void;
+    export function resolve4(hostname: string, options: ResolveWithTtlOptions, callback: (err: NodeJS.ErrnoException, addresses: RecordWithTtl[]) => void): void;
+    export function resolve4(hostname: string, options: ResolveOptions, callback: (err: NodeJS.ErrnoException, addresses: string[] | RecordWithTtl[]) => void): void;
+
     export function resolve6(hostname: string, callback: (err: NodeJS.ErrnoException, addresses: string[]) => void): void;
+    export function resolve6(hostname: string, options: ResolveWithTtlOptions, callback: (err: NodeJS.ErrnoException, addresses: RecordWithTtl[]) => void): void;
+    export function resolve6(hostname: string, options: ResolveOptions, callback: (err: NodeJS.ErrnoException, addresses: string[] | RecordWithTtl[]) => void): void;
+
     export function resolveCname(hostname: string, callback: (err: NodeJS.ErrnoException, addresses: string[]) => void): void;
     export function resolveMx(hostname: string, callback: (err: NodeJS.ErrnoException, addresses: MxRecord[]) => void): void;
     export function resolveNaptr(hostname: string, callback: (err: NodeJS.ErrnoException, addresses: NaptrRecord[]) => void): void;
@@ -2090,9 +2214,11 @@ declare module "net" {
         connect(port: number, host?: string, connectionListener?: Function): void;
         connect(path: string, connectionListener?: Function): void;
         bufferSize: number;
-        setEncoding(encoding?: string): void;
+        setEncoding(encoding?: string): this;
         write(data: any, encoding?: string, callback?: Function): void;
-        destroy(): void;
+        destroy(err?: any): void;
+        pause(): this;
+        resume(): this;
         setTimeout(timeout: number, callback?: Function): void;
         setNoDelay(noDelay?: boolean): void;
         setKeepAlive(enable?: boolean, initialDelay?: number): void;
@@ -2218,6 +2344,7 @@ declare module "net" {
         unref(): Server;
         maxConnections: number;
         connections: number;
+        listening: boolean;
 
         /**
          * events.EventEmitter
@@ -2263,7 +2390,7 @@ declare module "net" {
         prependOnceListener(event: "listening", listener: () => void): this;
     }
     export function createServer(connectionListener?: (socket: Socket) => void): Server;
-    export function createServer(options?: { allowHalfOpen?: boolean; }, connectionListener?: (socket: Socket) => void): Server;
+    export function createServer(options?: { allowHalfOpen?: boolean, pauseOnConnect?: boolean }, connectionListener?: (socket: Socket) => void): Server;
     export function connect(options: { port: number, host?: string, localAddress?: string, localPort?: string, family?: number, allowHalfOpen?: boolean; }, connectionListener?: Function): Socket;
     export function connect(port: number, host?: string, connectionListener?: Function): Socket;
     export function connect(path: string, connectionListener?: Function): Socket;
@@ -2296,12 +2423,14 @@ declare module "dgram" {
         exclusive?: boolean;
     }
 
+    type SocketType = "udp4" | "udp6";
+
     interface SocketOptions {
-        type: "udp4" | "udp6";
+        type: SocketType;
         reuseAddr?: boolean;
     }
 
-    export function createSocket(type: string, callback?: (msg: Buffer, rinfo: RemoteInfo) => void): Socket;
+    export function createSocket(type: SocketType, callback?: (msg: Buffer, rinfo: RemoteInfo) => void): Socket;
     export function createSocket(options: SocketOptions, callback?: (msg: Buffer, rinfo: RemoteInfo) => void): Socket;
 
     export interface Socket extends events.EventEmitter {
@@ -2309,7 +2438,7 @@ declare module "dgram" {
         send(msg: Buffer | String | any[], offset: number, length: number, port: number, address: string, callback?: (error: Error, bytes: number) => void): void;
         bind(port?: number, address?: string, callback?: () => void): void;
         bind(options: BindOptions, callback?: Function): void;
-        close(callback?: any): void;
+        close(callback?: () => void): void;
         address(): AddressInfo;
         setBroadcast(flag: boolean): void;
         setTTL(ttl: number): void;
@@ -2595,8 +2724,9 @@ declare module "fs" {
      * @returns Returns the created folder path.
      */
     export function mkdtempSync(prefix: string): string;
-    export function readdir(path: string | Buffer, callback?: (err: NodeJS.ErrnoException, files: string[]) => void): void;
-    export function readdirSync(path: string | Buffer): string[];
+    export function readdir(path: string | Buffer, callback: (err: NodeJS.ErrnoException, files: string[]) => void): void;
+    export function readdir(path: string | Buffer, options: string | {}, callback: (err: NodeJS.ErrnoException, files: string[]) => void): void;
+    export function readdirSync(path: string | Buffer, options?: string | {}): string[];
     export function close(fd: number, callback?: (err?: NodeJS.ErrnoException) => void): void;
     export function closeSync(fd: number): void;
     export function open(path: string | Buffer, flags: string | number, callback: (err: NodeJS.ErrnoException, fd: number) => void): void;
@@ -3051,6 +3181,25 @@ declare module "tls" {
         CN: string;
     }
 
+    export interface PeerCertificate {
+        subject: Certificate;
+        issuer: Certificate;
+        subjectaltname: string;
+        infoAccess: { [index: string]: string[] };
+        modulus: string;
+        exponent: string;
+        valid_from: string;
+        valid_to: string;
+        fingerprint: string;
+        ext_key_usage: string[];
+        serialNumber: string;
+        raw: Buffer;
+    }
+
+    export interface DetailedPeerCertificate extends PeerCertificate {
+      issuerCertificate: DetailedPeerCertificate;
+    }
+
     export interface CipherNameAndProtocol {
         /**
          * The cipher name.
@@ -3148,8 +3297,8 @@ declare module "tls" {
         encrypted: boolean;
         /**
          * Returns an object representing the cipher name and the SSL/TLS protocol version of the current connection.
-         * @returns Returns an object representing the cipher name and the SSL/TLS protocol version of the current
-         * connection.
+         * @returns Returns an object representing the cipher name
+         * and the SSL/TLS protocol version of the current connection.
          */
         getCipher(): CipherNameAndProtocol;
         /**
@@ -3161,16 +3310,9 @@ declare module "tls" {
          * @param detailed - If true; the full chain with issuer property will be returned.
          * @returns An object representing the peer's certificate.
          */
-        getPeerCertificate(detailed?: boolean): {
-            subject: Certificate;
-            issuerInfo: Certificate;
-            issuer: Certificate;
-            raw: any;
-            valid_from: string;
-            valid_to: string;
-            fingerprint: string;
-            serialNumber: string;
-        };
+        getPeerCertificate(detailed: true): DetailedPeerCertificate;
+        getPeerCertificate(detailed?: false): PeerCertificate;
+        getPeerCertificate(detailed?: boolean): PeerCertificate | DetailedPeerCertificate;
         /**
          * Could be used to speed up handshake establishment when reconnecting to the server.
          * @returns ASN.1 encoded TLS session or undefined if none was negotiated.
@@ -3179,7 +3321,7 @@ declare module "tls" {
         /**
          * NOTE: Works only with client TLS sockets.
          * Useful only for debugging, for session reuse provide session option to tls.connect().
-         * @returns TLS session ticket or undefined if none was negotiated.
+         * @returns {any} - TLS session ticket or undefined if none was negotiated.
          */
         getTLSTicket(): any;
         /**
@@ -3526,6 +3668,13 @@ declare module "crypto" {
     export function randomBytes(size: number, callback: (err: Error, buf: Buffer) => void): void;
     export function pseudoRandomBytes(size: number): Buffer;
     export function pseudoRandomBytes(size: number, callback: (err: Error, buf: Buffer) => void): void;
+    export function randomFillSync(buffer: Buffer | Uint8Array, offset?: number, size?: number): Buffer;
+    export function randomFill(buffer: Buffer, callback: (err: Error, buf: Buffer) => void): void;
+    export function randomFill(buffer: Uint8Array, callback: (err: Error, buf: Uint8Array) => void): void;
+    export function randomFill(buffer: Buffer, offset: number, callback: (err: Error, buf: Buffer) => void): void;
+    export function randomFill(buffer: Uint8Array, offset: number, callback: (err: Error, buf: Uint8Array) => void): void;
+    export function randomFill(buffer: Buffer, offset: number, size: number, callback: (err: Error, buf: Buffer) => void): void;
+    export function randomFill(buffer: Uint8Array, offset: number, size: number, callback: (err: Error, buf: Uint8Array) => void): void;
     export interface RsaPublicKey {
         key: string;
         padding?: number;
@@ -3585,12 +3734,12 @@ declare module "stream" {
             constructor(opts?: ReadableOptions);
             _read(size: number): void;
             read(size?: number): any;
-            setEncoding(encoding: string): void;
+            setEncoding(encoding: string): this;
             pause(): this;
             resume(): this;
             isPaused(): boolean;
             pipe<T extends NodeJS.WritableStream>(destination: T, options?: { end?: boolean; }): T;
-            unpipe<T extends NodeJS.WritableStream>(destination?: T): void;
+            unpipe<T extends NodeJS.WritableStream>(destination?: T): this;
             unshift(chunk: any): void;
             wrap(oldStream: NodeJS.ReadableStream): Readable;
             push(chunk: any, encoding?: string): boolean;
@@ -3785,23 +3934,23 @@ declare module "util" {
     export function log(string: string): void;
     export function inspect(object: any, showHidden?: boolean, depth?: number | null, color?: boolean): string;
     export function inspect(object: any, options: InspectOptions): string;
-    export function isArray(object: any): boolean;
-    export function isRegExp(object: any): boolean;
-    export function isDate(object: any): boolean;
-    export function isError(object: any): boolean;
+    export function isArray(object: any): object is any[];
+    export function isRegExp(object: any): object is RegExp;
+    export function isDate(object: any): object is Date;
+    export function isError(object: any): object is Error;
     export function inherits(constructor: any, superConstructor: any): void;
     export function debuglog(key: string): (msg: string, ...param: any[]) => void;
-    export function isBoolean(object: any): boolean;
-    export function isBuffer(object: any): boolean;
+    export function isBoolean(object: any): object is boolean;
+    export function isBuffer(object: any): object is Buffer;
     export function isFunction(object: any): boolean;
-    export function isNull(object: any): boolean;
-    export function isNullOrUndefined(object: any): boolean;
-    export function isNumber(object: any): boolean;
+    export function isNull(object: any): object is null;
+    export function isNullOrUndefined(object: any): object is null | undefined;
+    export function isNumber(object: any): object is number;
     export function isObject(object: any): boolean;
     export function isPrimitive(object: any): boolean;
-    export function isString(object: any): boolean;
-    export function isSymbol(object: any): boolean;
-    export function isUndefined(object: any): boolean;
+    export function isString(object: any): object is string;
+    export function isSymbol(object: any): object is symbol;
+    export function isUndefined(object: any): object is undefined;
     export function deprecate<T extends Function>(fn: T, message: string): T;
 }
 
@@ -3853,12 +4002,12 @@ declare module "tty" {
     import * as net from "net";
 
     export function isatty(fd: number): boolean;
-    export class ReadStream extends net.Socket {
+    export interface ReadStream extends net.Socket {
         isRaw: boolean;
         setRawMode(mode: boolean): void;
         isTTY: boolean;
     }
-    export class WriteStream extends net.Socket {
+    export interface WriteStream extends net.Socket {
         columns: number;
         rows: number;
         isTTY: boolean;
@@ -4172,10 +4321,8 @@ declare module "v8" {
         physical_space_size: number;
     }
 
-    const enum DoesZapCodeSpaceFlag {
-        Disabled = 0,
-        Enabled = 1
-    }
+    //** Signifies if the --zap_code_space option is enabled or not.  1 == enabled, 0 == disabled. */
+    type DoesZapCodeSpaceFlag = 0 | 1;
 
     interface HeapInfo {
         total_heap_size: number;

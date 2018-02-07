@@ -24,6 +24,7 @@ import * as string_decoder from "string_decoder";
 import * as stream from "stream";
 import * as timers from "timers";
 import * as repl from "repl";
+import * as v8 from "v8";
 import * as dns from "dns";
 
 // Specifically test buffer module regression.
@@ -318,18 +319,6 @@ function bufferTests() {
         buf = Buffer.from(arr.buffer, 1);
         buf = Buffer.from(arr.buffer, 0, 1);
     }
-
-    // Class Method: Buffer.from(buffer)
-    {
-        const buf1: Buffer = Buffer.from('buffer');
-        const buf2: Buffer = Buffer.from(buf1);
-    }
-
-    // Class Method: Buffer.from(str[, encoding])
-    {
-        const buf1: Buffer = Buffer.from('this is a tést');
-        const buf2: Buffer = Buffer.from('7468697320697320612074c3a97374', 'hex');
-    }
     // Class Method: Buffer.alloc(size[, fill[, encoding]])
     {
         const buf1: Buffer = Buffer.alloc(5);
@@ -343,6 +332,18 @@ function bufferTests() {
     // Class Method: Buffer.allocUnsafeSlow(size)
     {
         const buf: Buffer = Buffer.allocUnsafeSlow(10);
+    }
+
+    // Class Method: Buffer.from(buffer)
+    {
+        const buf1: Buffer = Buffer.from('buffer');
+        const buf2: Buffer = Buffer.from(buf1);
+    }
+
+    // Class Method: Buffer.from(str[, encoding])
+    {
+        const buf1: Buffer = Buffer.from('this is a tést');
+        const buf2: Buffer = Buffer.from('7468697320697320612074c3a97374', 'hex');
     }
 
     // Test that TS 1.6 works with the 'as Buffer' annotation
@@ -464,11 +465,107 @@ namespace url_tests {
             pathname: 'search',
             query: { q: "you're a lizard, gary" }
         });
+
+        const myURL = new url.URL('https://a:b@你好你好?abc#foo');
+        url.format(myURL, { fragment: false, unicode: true, auth: false });
     }
 
     {
         var helloUrl = url.parse('http://example.com/?hello=world', true)
         assert.equal(helloUrl.query.hello, 'world');
+    }
+
+    {
+        let myURL = new url.URL('https://theuser:thepwd@example.org:81/foo/path?query=string#bar');
+        assert.equal(myURL.hash, '#bar');
+        assert.equal(myURL.host, 'example.org:81');
+        assert.equal(myURL.hostname, 'example.org');
+        assert.equal(myURL.href, 'https://theuser:thepwd@example.org:81/foo/path?query=string#bar');
+        assert.equal(myURL.origin, 'https://example.org:81');
+        assert.equal(myURL.password, 'thepwd');
+        assert.equal(myURL.username, 'theuser');
+        assert.equal(myURL.pathname, '/foo/path');
+        assert.equal(myURL.port, "81");
+        assert.equal(myURL.protocol, "https:");
+        assert.equal(myURL.search, "?query=string");
+        assert.equal(myURL.toString(), 'https://theuser:thepwd@example.org:81/foo/path?query=string#bar');
+        assert(myURL.searchParams instanceof url.URLSearchParams);
+
+        myURL.host = 'example.org:82';
+        myURL.hostname = 'example.com';
+        myURL.href = 'http://other.com';
+        myURL.hash = 'baz';
+        myURL.password = "otherpwd";
+        myURL.username = "otheruser";
+        myURL.pathname = "/otherPath";
+        myURL.port = "82";
+        myURL.protocol = "http";
+        myURL.search = "a=b";
+        assert.equal(myURL.href, 'http://otheruser:otherpwd@other.com:82/otherPath?a=b#baz');
+
+        myURL = new url.URL('/foo', 'https://example.org/');
+        assert.equal(myURL.href, 'https://example.org/foo');
+        assert.equal(myURL.toJSON(), myURL.href);
+    }
+
+    {
+        const searchParams = new url.URLSearchParams('abc=123');
+
+        assert.equal(searchParams.toString(), 'abc=123');
+        searchParams.forEach((value: string, name: string): void => {
+            assert.equal(name, 'abc');
+            assert.equal(value, '123');
+        });
+
+        assert.equal(searchParams.get('abc'), '123');
+
+        searchParams.append('abc', 'xyz');
+
+        assert.deepEqual(searchParams.getAll('abc'), ['123', 'xyz']);
+
+        const entries = searchParams.entries();
+        assert.deepEqual(entries.next(), { value: ["abc", "123"], done: false});
+        assert.deepEqual(entries.next(), { value: ["abc", "xyz"], done: false});
+        assert.deepEqual(entries.next(), { value: undefined, done: true});
+
+        const keys = searchParams.keys();
+        assert.deepEqual(keys.next(), { value: "abc", done: false});
+        assert.deepEqual(keys.next(), { value: "abc", done: false});
+        assert.deepEqual(keys.next(), { value: undefined, done: true});
+
+        const values = searchParams.values();
+        assert.deepEqual(values.next(), { value: "123", done: false});
+        assert.deepEqual(values.next(), { value: "xyz", done: false});
+        assert.deepEqual(values.next(), { value: undefined, done: true});
+
+        searchParams.set('abc', 'b');
+        assert.deepEqual(searchParams.getAll('abc'), ['b']);
+
+        searchParams.delete('a');
+        assert(!searchParams.has('a'));
+        assert.equal(searchParams.get('a'), null);
+
+        searchParams.sort();
+    }
+
+    {
+        const searchParams = new url.URLSearchParams({
+            user: 'abc',
+            query: ['first', 'second']
+        });
+
+        assert.equal(searchParams.toString(), 'user=abc&query=first%2Csecond');
+        assert.deepEqual(searchParams.getAll('query'), ['first,second']);
+    }
+
+    {
+        // Using an array
+        let params = new url.URLSearchParams([
+            ['user', 'abc'],
+            ['query', 'first'],
+            ['query', 'second']
+        ]);
+        assert.equal(params.toString(), 'user=abc&query=first&query=second');
     }
 }
 
@@ -514,7 +611,7 @@ namespace util_tests {
 function stream_readable_pipe_test() {
     var rs = fs.createReadStream(Buffer.from('file.txt'));
     var r = fs.createReadStream('file.txt');
-    var z = zlib.createGzip({ finishFlush: zlib.Z_FINISH });
+    var z = zlib.createGzip({ finishFlush: zlib.constants.Z_FINISH });
     var w = fs.createWriteStream('file.txt.gz');
 
     assert(typeof r.bytesRead === 'number');
@@ -532,19 +629,25 @@ const compressMe = new Buffer("some data");
 const compressMeString = "compress me!";
 
 zlib.deflate(compressMe, (err: Error, result: Buffer) => zlib.inflate(result, (err: Error, result: Buffer) => result));
+zlib.deflate(compressMe, { finishFlush: zlib.Z_SYNC_FLUSH }, (err: Error, result: Buffer) => zlib.inflate(result, { finishFlush: zlib.Z_SYNC_FLUSH }, (err: Error, result: Buffer) => result));
 zlib.deflate(compressMeString, (err: Error, result: Buffer) => zlib.inflate(result, (err: Error, result: Buffer) => result));
+zlib.deflate(compressMeString, { finishFlush: zlib.Z_SYNC_FLUSH }, (err: Error, result: Buffer) => zlib.inflate(result, { finishFlush: zlib.Z_SYNC_FLUSH }, (err: Error, result: Buffer) => result));
 const inflated = zlib.inflateSync(zlib.deflateSync(compressMe));
 const inflatedString = zlib.inflateSync(zlib.deflateSync(compressMeString));
 
 zlib.deflateRaw(compressMe, (err: Error, result: Buffer) => zlib.inflateRaw(result, (err: Error, result: Buffer) => result));
+zlib.deflateRaw(compressMe, { finishFlush: zlib.Z_SYNC_FLUSH }, (err: Error, result: Buffer) => zlib.inflateRaw(result, { finishFlush: zlib.Z_SYNC_FLUSH }, (err: Error, result: Buffer) => result));
 zlib.deflateRaw(compressMeString, (err: Error, result: Buffer) => zlib.inflateRaw(result, (err: Error, result: Buffer) => result));
+zlib.deflateRaw(compressMeString, { finishFlush: zlib.Z_SYNC_FLUSH }, (err: Error, result: Buffer) => zlib.inflateRaw(result, { finishFlush: zlib.Z_SYNC_FLUSH }, (err: Error, result: Buffer) => result));
 const inflatedRaw: Buffer = zlib.inflateRawSync(zlib.deflateRawSync(compressMe));
 const inflatedRawString: Buffer = zlib.inflateRawSync(zlib.deflateRawSync(compressMeString));
 
 zlib.gzip(compressMe, (err: Error, result: Buffer) => zlib.gunzip(result, (err: Error, result: Buffer) => result));
+zlib.gzip(compressMe, { finishFlush: zlib.Z_SYNC_FLUSH }, (err: Error, result: Buffer) => zlib.gunzip(result, { finishFlush: zlib.Z_SYNC_FLUSH }, (err: Error, result: Buffer) => result));
 const gunzipped: Buffer = zlib.gunzipSync(zlib.gzipSync(compressMe));
 
 zlib.unzip(compressMe, (err: Error, result: Buffer) => result);
+zlib.unzip(compressMe, { finishFlush: zlib.Z_SYNC_FLUSH }, (err: Error, result: Buffer) => result);
 const unzipped: Buffer = zlib.unzipSync(compressMe);
 
 // Simplified constructors
@@ -614,32 +717,6 @@ function simplified_stream_ctor_test() {
     })
 }
 
-// Subclassing stream classes
-{
-    class SubclassedReadable extends stream.Readable {};
-
-    let subclassedReadable: SubclassedReadable = new SubclassedReadable();
-    subclassedReadable = subclassedReadable.pause();
-    subclassedReadable = subclassedReadable.resume();
-
-    class SubclassedTransform extends stream.Transform {};
-
-    let subclassedTransform: SubclassedTransform = new SubclassedTransform();
-    subclassedTransform = subclassedTransform.pause();
-    subclassedTransform = subclassedTransform.resume();
-
-    class SubclassedDuplex extends stream.Duplex {};
-
-    let subclassedDuplex: SubclassedDuplex = new SubclassedDuplex();
-    subclassedDuplex = subclassedDuplex.pause();
-    subclassedDuplex = subclassedDuplex.resume();
-
-    // assignability
-    let readable: stream.Readable = subclassedDuplex;
-    readable = subclassedTransform;
-    let duplex: stream.Duplex = subclassedTransform;
-}
-
 ////////////////////////////////////////////////////////
 /// Crypto tests : http://nodejs.org/api/crypto.html ///
 ////////////////////////////////////////////////////////
@@ -650,10 +727,10 @@ namespace crypto_tests {
     }
 
     {
-    let hmac: crypto.Hmac;
-    (hmac = crypto.createHmac('md5', 'hello')).end('world', 'utf8', () => {
+        let hmac: crypto.Hmac;
+        (hmac = crypto.createHmac('md5', 'hello')).end('world', 'utf8', () => {
             let hash: Buffer | string = hmac.read();
-    });
+        });
     }
 
     {
@@ -662,13 +739,13 @@ namespace crypto_tests {
         let clearText: string = "This is the clear text.";
         let cipher: crypto.Cipher = crypto.createCipher("aes-128-ecb", key);
         let cipherText: string = cipher.update(clearText, "utf8", "hex");
-	cipherText += cipher.final("hex");
+        cipherText += cipher.final("hex");
 
         let decipher: crypto.Decipher = crypto.createDecipher("aes-128-ecb", key);
         let clearText2: string = decipher.update(cipherText, "hex", "utf8");
-	clearText2 += decipher.final("utf8");
+        clearText2 += decipher.final("utf8");
 
-	assert.equal(clearText2, clearText);
+        assert.equal(clearText2, clearText);
     }
 
     {
@@ -677,19 +754,19 @@ namespace crypto_tests {
         let clearText: Buffer = new Buffer([1, 2, 3, 4, 5, 6, 7, 8, 9, 8, 7, 6, 5, 4]);
         let cipher: crypto.Cipher = crypto.createCipher("aes-128-ecb", key);
         let cipherBuffers: Buffer[] = [];
-	cipherBuffers.push(cipher.update(clearText));
-	cipherBuffers.push(cipher.final());
+        cipherBuffers.push(cipher.update(clearText));
+        cipherBuffers.push(cipher.final());
 
         let cipherText: Buffer = Buffer.concat(cipherBuffers);
 
         let decipher: crypto.Decipher = crypto.createDecipher("aes-128-ecb", key);
         let decipherBuffers: Buffer[] = [];
-	decipherBuffers.push(decipher.update(cipherText));
-	decipherBuffers.push(decipher.final());
+        decipherBuffers.push(decipher.update(cipherText));
+        decipherBuffers.push(decipher.final());
 
         let clearText2: Buffer = Buffer.concat(decipherBuffers);
 
-	assert.deepEqual(clearText2, clearText);
+        assert.deepEqual(clearText2, clearText);
     }
 
     {
@@ -700,6 +777,26 @@ namespace crypto_tests {
       assert(crypto.timingSafeEqual(buffer1, buffer2))
       assert(!crypto.timingSafeEqual(buffer1, buffer3))
     }
+
+    {
+        let buffer: Buffer = new Buffer(10);
+        crypto.randomFillSync(buffer);
+        crypto.randomFillSync(buffer, 2);
+        crypto.randomFillSync(buffer, 2, 3);
+
+        crypto.randomFill(buffer, (err: Error, buf: Buffer) => void {});
+        crypto.randomFill(buffer, 2, (err: Error, buf: Buffer) => void {});
+        crypto.randomFill(buffer, 2, 3, (err: Error, buf: Buffer) => void {});
+
+        let arr: Uint8Array = new Uint8Array(10);
+        crypto.randomFillSync(arr);
+        crypto.randomFillSync(arr, 2);
+        crypto.randomFillSync(arr, 2, 3);
+
+        crypto.randomFill(arr, (err: Error, buf: Uint8Array) => void {});
+        crypto.randomFill(arr, 2, (err: Error, buf: Uint8Array) => void {});
+        crypto.randomFill(arr, 2, 3, (err: Error, buf: Uint8Array) => void {});
+    }
 }
 
 //////////////////////////////////////////////////
@@ -708,17 +805,17 @@ namespace crypto_tests {
 
 namespace tls_tests {
     {
-    var ctx: tls.SecureContext = tls.createSecureContext({
-    key: "NOT REALLY A KEY",
-    cert: "SOME CERTIFICATE",
-    });
-    var blah = ctx.context;
+        var ctx: tls.SecureContext = tls.createSecureContext({
+            key: "NOT REALLY A KEY",
+            cert: "SOME CERTIFICATE",
+        });
+        var blah = ctx.context;
 
-    var connOpts: tls.ConnectionOptions = {
-	host: "127.0.0.1",
-	port: 55
-    };
-    var tlsSocket = tls.connect(connOpts);
+        var connOpts: tls.ConnectionOptions = {
+            host: "127.0.0.1",
+            port: 55
+        };
+        var tlsSocket = tls.connect(connOpts);
     }
 
     {
@@ -950,7 +1047,7 @@ namespace http_tests {
         request.abort();
     }
 
-    // http request options
+	// http request options
     {
         const requestOpts: http.RequestOptions = {
             timeout: 30000
@@ -1283,7 +1380,6 @@ namespace path_tests {
     // returns
     //    '/home/user/dir/file.txt'
 
-
     path.format({
         dir: "/home/user/dir",
         base: "file.txt"
@@ -1350,6 +1446,12 @@ namespace readline_tests {
             input: input,
             completer: function(str: string): readline.CompleterResult {
                 return [['test'], 'test'];
+            }
+        });
+        result = readline.createInterface({
+            input: input,
+            completer: function(str: string, callback: (err: any, result: readline.CompleterResult) => void): any {
+                callback(null, [['test'], 'test']);
             }
         });
     }
@@ -1642,7 +1744,6 @@ namespace os_tests {
         result = os.endianness();
         result = os.hostname();
         result = os.type();
-        result = os.platform();
         result = os.arch();
         result = os.release();
         result = os.EOL;
@@ -1937,6 +2038,11 @@ namespace console_tests {
     {
         var _c: Console = console;
         _c = c;
+    }
+    {
+        var writeStream     = fs.createWriteStream('./index.d.ts');
+        var consoleInstance = new console.Console(writeStream)
+
     }
 }
 
@@ -2298,10 +2404,28 @@ namespace dns_tests {
     dns.resolve4("nodejs.org", (err, addresses) => {
         const _addresses: string[] = addresses;
     });
+    dns.resolve4("nodejs.org", {ttl: true}, (err, addresses) => {
+        const _addresses: dns.RecordWithTtl[] = addresses;
+    });
+    {
+        const ttl = false;
+        dns.resolve4("nodejs.org", {ttl: ttl}, (err, addresses) => {
+            const _addresses: string[] | dns.RecordWithTtl[] = addresses;
+        });
+    }
 
     dns.resolve6("nodejs.org", (err, addresses) => {
         const _addresses: string[] = addresses;
     });
+    dns.resolve6("nodejs.org", {ttl: true}, (err, addresses) => {
+        const _addresses: dns.RecordWithTtl[] = addresses;
+    });
+    {
+        const ttl = false;
+        dns.resolve6("nodejs.org", {ttl: ttl}, (err, addresses) => {
+            const _addresses: string[] | dns.RecordWithTtl[] = addresses;
+        });
+    }
 }
 
 /*****************************************************************************
@@ -2454,6 +2578,21 @@ namespace constants_tests {
     num = constants.POINT_CONVERSION_HYBRID
     str = constants.defaultCoreCipherList
     str = constants.defaultCipherList
+}
+
+
+////////////////////////////////////////////////////
+/// v8 tests : https://nodejs.org/api/v8.html
+////////////////////////////////////////////////////
+
+namespace v8_tests {
+
+    const heapStats = v8.getHeapStatistics();
+    const heapSpaceStats = v8.getHeapSpaceStatistics();
+
+    const zapsGarbage: number = heapStats.does_zap_garbage;
+
+    v8.setFlagsFromString('--collect_maps');
 }
 
 ///////////////////////////////////////////////////////////
